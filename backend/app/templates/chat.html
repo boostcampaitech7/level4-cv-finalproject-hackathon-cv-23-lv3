@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReportRadar</title>
+
+    <!-- 외부 CSS 파일 및 라이브러리 로드 -->
+    <link
+      href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"
+      rel="stylesheet"
+      id="bootstrap-css"
+    />
+    <link rel="stylesheet" href="{{ request.url_for('static', path='sidebar.css') }}">
+    <link rel="stylesheet" href="{{ request.url_for('static', path='style.css') }}">
+    <!-- FontAwesome 아이콘 라이브러리 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+    <style>
+      /* 메시지 입력창 스타일 설정 */
+      #messageInput {
+        resize: none;          /* 크기 조절 비활성화 */
+        overflow-y: hidden;    /* 세로 스크롤바 숨김 */
+        min-height: 40px;      /* 최소 높이 설정 */
+        max-height: 200px;     /* 최대 높이 설정 */
+      }
+
+      /* 세션 버튼 내 아이콘 크기 설정 */
+      .session-button .nav__icon {
+        font-size: 1.16rem;  /* 아이콘 크기 조절 */
+      }
+
+      /* 메시지 표시 애니메이션 효과 */
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* 사용자와 봇 메시지 애니메이션 클래스 */
+      .user-message-animation {
+        animation: fadeIn 0.5s ease-out forwards;
+      }
+      .bot-message-animation {
+        animation: fadeIn 0.5s ease-out forwards;
+      }
+
+      /* 타이핑 표시기 스타일 */
+      .typing-indicator {
+        display: flex;
+        gap: 4px;
+        padding: 10px;
+      }
+
+      /* 타이핑 점 애니메이션 스타일 */
+      .typing-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #90949c;
+        border-radius: 50%;
+        animation: typingAnimation 1s infinite ease-in-out;
+      }
+
+      /* 각 타이핑 점의 애니메이션 딜레이 설정 */
+      .typing-dot:nth-child(1) { animation-delay: 200ms; }
+      .typing-dot:nth-child(2) { animation-delay: 300ms; }
+      .typing-dot:nth-child(3) { animation-delay: 400ms; }
+
+      /* 타이핑 애니메이션 키프레임 정의 */
+      @keyframes typingAnimation {
+        0% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0); }
+      }
+    </style>
+  </head>
+
+  <body id="body-pd">
+    <!-- 사이드바 네비게이션 -->
+    <div class="l-navbar" id="navbar">
+      <nav class="nav">
+        <div class="nav-container">
+          <!-- 브랜드 로고 및 토글 버튼 -->
+          <div class="nav__brand">
+            <ion-icon name="menu-outline" class="nav__toggle" id="nav-toggle"></ion-icon>
+            <div class="nav__logo">ReportRadar</div>
+          </div>
+          
+          <!-- 네비게이션 메뉴 목록 -->
+          <div class="nav__list">
+            <!-- 새 채팅 버튼 -->
+            <a href="{{ request.url_for('show_user_chats') }}" class="nav__link">
+              <ion-icon name="chatbubbles-outline" class="nav__icon"></ion-icon>
+              <span class="nav_name">새 채팅</span>
+            </a>
+
+            <!-- 뉴스 요약 버튼 -->
+            <a href="{{ request.url_for('news') }}" class="nav__link">
+              <ion-icon name="newspaper-outline" class="nav__icon"></ion-icon>
+              <span class="nav_name">뉴스 요약</span>
+            </a>
+
+            <!-- 최근 대화 섹션 -->
+            <div class="nav__recent">
+              <span class="nav_name nav_recent_title">최신</span>
+            </div>
+
+            <!-- 채팅 세션 목록 -->
+            <div class="sessions-container">
+              <ul class="sessions-list" id="sessionList">
+                {% for session in chat_sessions %}
+                  <li class="session-item">
+                    <button class="session-button" data-session-id="{{ session.chat_session_id }}">
+                      <i class="far fa-comment-alt nav__icon"></i>
+                      {% if session.first_message %}
+                        {{ session.first_message[:10] }}{{ '...' if session.first_message|length > 10 else '' }}
+                      {% else %}
+                        새로운 채팅
+                      {% endif %}
+                    </button>                    
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>            
+          </div>
+        </div>
+      </nav>
+    </div>
+
+    <!-- 메인 채팅 컨테이너 -->
+    <div class="container-fluid h-100">
+      <div class="chat card h-100">
+        <!-- 채팅 헤더 -->
+        <div class="card-header msg_head d-flex justify-content-between align-items-center">
+          <h4 class="mb-0">ReportRadar</h4>
+          <!-- 사용자 프로필 드롭다운 -->
+          <div class="user-profile dropdown">
+            <div class="icon-container" data-toggle="dropdown">
+              <i class="fas fa-user"></i>
+            </div>
+            <div class="dropdown-menu dropdown-menu-right">
+              <a class="dropdown-item" href="{{ request.url_for('mypage') }}">
+                <i class="fas fa-user mr-2"></i>마이페이지
+              </a>
+              <div class="dropdown-divider"></div>
+              <a class="dropdown-item" href="{{ request.url_for('logout') }}">
+                <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+              </a>
+            </div>
+          </div>
+        </div>            
+        
+        <!-- 채팅 메시지 표시 영역 -->
+        <div class="card-body msg_card_body" id="messageContainer">
+          <!-- 메시지들이 여기에 표시됩니다 -->
+        </div>
+
+        <!-- 메시지 입력 + 전송 버튼 -->
+        <div class="card-footer">
+          <form id="messageForm" class="input-group">
+            <!-- textarea로 여러 줄 입력 지원 -->
+            <textarea
+              id="messageInput"
+              class="form-control type_msg"
+              placeholder="메시지를 입력하세요...(Shift+Enter=줄바꿈)"
+              rows="1"
+            ></textarea>
+            <div class="input-group-append">
+              <button type="button" class="send_btn" id="sendButton">
+                <i class="fas fa-arrow-up"></i>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 외부 JavaScript 라이브러리 및 스크립트 로드 -->
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
+    <script src="https://unpkg.com/ionicons@5.2.3/dist/ionicons.js"></script>
+    <script src="{{ request.url_for('static', path='js/sidebar.js') }}"></script>
+    <script src="{{ request.url_for('static', path='js/chat.js') }}"></script>
+    <!-- 사용자 ID 설정 -->
+    <script>
+      userId = "{{ user_id if user_id else '' }}";
+    </script>
+  </body>
+</html>
